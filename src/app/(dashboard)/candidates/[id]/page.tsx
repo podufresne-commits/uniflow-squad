@@ -177,7 +177,7 @@ export default function CandidateResultPage({
                  </div>
               ) : (
                 <div className="flex flex-col items-center justify-center text-center py-6">
-                    <ShieldCheck className="size-10 text-green-500 mb-2"/>
+                    <ShieldCheck className="size-10 text-green-600 mb-2"/>
                     <p className="font-medium">No Integrity Issues</p>
                     <p className="text-sm text-muted-foreground">The candidate completed the assessment without any violations.</p>
                 </div>
