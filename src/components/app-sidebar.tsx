@@ -36,7 +36,7 @@ export function AppSidebar() {
     <Sidebar>
       <SidebarHeader>
         <div className="flex items-center gap-2">
-          <UniflowIcon className="size-8 text-primary" />
+          <UniflowIcon className="h-8 w-auto" />
           <div className="flex flex-col">
             <h2 className="text-lg font-semibold tracking-tight text-foreground">
               Uniflow Assess
@@ -49,9 +49,9 @@ export function AppSidebar() {
           {menuItems.map((item) => (
             <SidebarMenuItem key={item.href}>
               <SidebarMenuButton
+                asChild
                 isActive={pathname.startsWith(item.href)}
                 tooltip={item.label}
-                asChild
               >
                 <Link href={item.href}>
                   <item.icon />

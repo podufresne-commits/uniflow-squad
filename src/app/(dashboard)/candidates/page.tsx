@@ -33,7 +33,7 @@ export default function CandidatesPage() {
 
   const statusColors: Record<AssessmentStatus, string> = {
     'Completed': 'bg-green-600',
-    'In Progress': 'bg-brand-500',
+    'In Progress': 'bg-primary',
     'Not Started': 'bg-gray-400',
   }
 

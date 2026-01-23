@@ -8,11 +8,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Progress } from '@/components/ui/progress';
 import { ResultsCharts } from './components/results-charts';
 import type { AssessmentQuestion } from '@/lib/types';
+import { automatedAiScoring } from '@/ai/flows/automated-ai-scoring';
 
-export default function CandidateResultPage({
+export default async function CandidateResultPage({
   params,
   searchParams,
 }: {
@@ -42,8 +42,32 @@ export default function CandidateResultPage({
     }
   };
 
+  // Perform AI scoring for each answer
+  const scoredAnswers = await Promise.all(
+    session.answers.map(async (answer) => {
+      const question = getQuestion(answer.questionId);
+      if (!question) {
+        return { ...answer, score: 0, explanation: "Question not found." };
+      }
+      try {
+        const scoreResult = await automatedAiScoring({
+          question: question.question,
+          answer: answer.answer,
+          roleRequirements: role.requirements,
+          skillsToTest: question.skill
+        });
+        return { ...answer, ...scoreResult };
+      } catch (e) {
+        console.error("AI Scoring failed for question:", question.id, e);
+        return { ...answer, score: answer.score, explanation: `AI scoring failed: ${answer.explanation}` };
+      }
+    })
+  );
+
+  const overallScore = Math.round(scoredAnswers.reduce((acc, ans) => acc + ans.score, 0) / (scoredAnswers.length || 1));
+
   const scoreBySkill: { [key: string]: { scores: number[], count: number } } = {};
-  session.answers.forEach(answer => {
+  scoredAnswers.forEach(answer => {
     const question = getQuestion(answer.questionId);
     if(question) {
         if(!scoreBySkill[question.skill]) {
@@ -81,7 +105,7 @@ export default function CandidateResultPage({
               <CardTitle>Overall Performance</CardTitle>
             </CardHeader>
             <CardContent>
-              <ResultsCharts score={session.overallScore} skillScores={avgScoreBySkill} />
+              <ResultsCharts score={overallScore} skillScores={avgScoreBySkill} />
             </CardContent>
           </Card>
           
@@ -91,7 +115,7 @@ export default function CandidateResultPage({
               <CardDescription>Review of each question and the candidate's answer.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              {session.answers.map(answer => {
+              {scoredAnswers.map(answer => {
                 const question = getQuestion(answer.questionId);
                 if (!question) return null;
                 
@@ -154,7 +178,7 @@ export default function CandidateResultPage({
                 </div>
                  <div className="flex items-center gap-2 text-muted-foreground">
                     <ShieldCheck className="size-4" />
-                    <span>Final Score: <span className="font-medium text-primary">{session.overallScore}%</span></span>
+                    <span>Final Score: <span className="font-medium text-primary">{overallScore}%</span></span>
                 </div>
             </CardContent>
           </Card>

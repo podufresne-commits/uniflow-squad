@@ -29,7 +29,7 @@ export function ResultsCharts({ score, skillScores }: ResultsChartsProps) {
     },
   } satisfies ChartConfig;
   
-  const scoreColor = score > 80 ? 'text-green-600' : score > 60 ? 'text-amber-500' : 'text-red-500';
+  const scoreColor = score > 80 ? 'text-green-600' : score > 60 ? 'text-yellow-500' : 'text-destructive';
 
   return (
     <div className="grid gap-6 md:grid-cols-3">

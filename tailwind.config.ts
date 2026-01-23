@@ -15,12 +15,12 @@ export default {
       },
       colors: {
         brand: {
-          50:  '#f0f9ff',
-          100: '#e0f2fe',
-          500: '#0ea5e9',
-          600: '#0284c7',
-          700: '#0369a1',
-          900: '#0c4a6e',
+          50:  '#f0f7fc',
+          100: '#e0eef9',
+          500: '#2087c7',
+          600: '#1668b0',
+          700: '#12558a',
+          900: '#0c3e66',
         },
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',

@@ -4,14 +4,13 @@ import { useEffect, useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { generateQuestionsAction } from '@/app/actions';
 import type { FormState } from '@/app/actions';
-import type { Role, QuestionType } from '@/lib/types';
+import type { Role, QuestionType, AssessmentQuestion } from '@/lib/types';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Bot, Check, Loader2 } from 'lucide-react';
+import { Bot, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const questionTypes: { id: QuestionType; label: string }[] = [
@@ -24,34 +23,51 @@ const questionTypes: { id: QuestionType; label: string }[] = [
 function SubmitButton() {
   const { pending } = useFormStatus();
   return (
-    <Button variant="secondary" type="submit" className="w-full" disabled={pending}>
+    <Button type="submit" className="w-full" disabled={pending}>
       {pending ? (
         <Loader2 className="mr-2 animate-spin" />
       ) : (
         <Bot className="mr-2" />
       )}
-      Generate
+      Generate Questions
     </Button>
   );
 }
 
-export default function GenerateQuestionsForm({ role }: { role: Role }) {
+export default function GenerateQuestionsForm({
+  role,
+  onQuestionsGenerated,
+}: {
+  role: Role;
+  onQuestionsGenerated: (questions: AssessmentQuestion[]) => void;
+}) {
   const initialState: FormState = { message: '' };
-  const [state, formAction] = useActionState(generateQuestionsAction, initialState);
+  const [state, formAction] = useActionState(
+    generateQuestionsAction,
+    initialState
+  );
   const { toast } = useToast();
 
   useEffect(() => {
-    if (state.message && !state.errors) {
+    if (state.errors) {
       toast({
-        title: state.questions ? 'Success' : 'Info',
+        title: 'Validation Error',
         description: state.message,
-        variant: state.questions ? 'default' : 'destructive',
+        variant: 'destructive',
+      });
+    } else if (state.questions) {
+      onQuestionsGenerated(state.questions);
+    } else if (state.message && !state.questions) {
+       toast({
+        title: 'An error occured',
+        description: state.message,
+        variant: 'destructive',
       });
     }
-  }, [state, toast]);
+  }, [state, toast, onQuestionsGenerated]);
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form action={formAction} className="space-y-4 py-4">
       <div className="space-y-2">
         <Label htmlFor="roleRequirements">Role Requirements</Label>
         <Textarea
@@ -61,7 +77,11 @@ export default function GenerateQuestionsForm({ role }: { role: Role }) {
           rows={4}
           className="text-xs"
         />
-        {state.errors?.roleRequirements && <p className="text-sm text-destructive">{state.errors.roleRequirements[0]}</p>}
+        {state.errors?.roleRequirements && (
+          <p className="text-sm text-destructive">
+            {state.errors.roleRequirements[0]}
+          </p>
+        )}
       </div>
       <div className="space-y-2">
         <Label htmlFor="skillsToTest">Skills to Test</Label>
@@ -70,7 +90,11 @@ export default function GenerateQuestionsForm({ role }: { role: Role }) {
           name="skillsToTest"
           defaultValue={role.skills.join(', ')}
         />
-        {state.errors?.skillsToTest && <p className="text-sm text-destructive">{state.errors.skillsToTest[0]}</p>}
+        {state.errors?.skillsToTest && (
+          <p className="text-sm text-destructive">
+            {state.errors.skillsToTest[0]}
+          </p>
+        )}
       </div>
       <div className="space-y-2">
         <Label>Question Types</Label>
@@ -89,10 +113,16 @@ export default function GenerateQuestionsForm({ role }: { role: Role }) {
             </div>
           ))}
         </div>
-         {state.errors?.questionTypes && <p className="text-sm text-destructive">{state.errors.questionTypes[0]}</p>}
+        {state.errors?.questionTypes && (
+          <p className="text-sm text-destructive">
+            {state.errors.questionTypes[0]}
+          </p>
+        )}
       </div>
       <div className="space-y-2">
-        <Label htmlFor="numberOfQuestions">Number of Questions (per type)</Label>
+        <Label htmlFor="numberOfQuestions">
+          Number of Questions (per type)
+        </Label>
         <Input
           id="numberOfQuestions"
           name="numberOfQuestions"
@@ -101,24 +131,14 @@ export default function GenerateQuestionsForm({ role }: { role: Role }) {
           min={1}
           max={5}
         />
-        {state.errors?.numberOfQuestions && <p className="text-sm text-destructive">{state.errors.numberOfQuestions[0]}</p>}
+        {state.errors?.numberOfQuestions && (
+          <p className="text-sm text-destructive">
+            {state.errors.numberOfQuestions[0]}
+          </p>
+        )}
       </div>
 
       <SubmitButton />
-
-      {state.questions && (
-        <div className="mt-6">
-          <Alert>
-            <Check className="h-4 w-4" />
-            <AlertTitle>Generated Questions</AlertTitle>
-            <AlertDescription>
-                <ul className="mt-2 list-disc list-inside text-sm">
-                    {state.questions.map(q => <li key={q.id}>{q.question}</li>)}
-                </ul>
-            </AlertDescription>
-          </Alert>
-        </div>
-      )}
     </form>
   );
 }
