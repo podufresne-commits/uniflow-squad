@@ -24,7 +24,7 @@ const questionTypes: { id: QuestionType; label: string }[] = [
 function SubmitButton() {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" className="w-full" disabled={pending}>
+    <Button variant="secondary" type="submit" className="w-full" disabled={pending}>
       {pending ? (
         <Loader2 className="mr-2 animate-spin" />
       ) : (

@@ -11,9 +11,9 @@ export function PageHeader({ title, description, actions, className }: PageHeade
   return (
     <div className={cn("flex items-center justify-between gap-4 py-8", className)}>
       <div className="grid gap-1">
-        <h1 className="text-2xl font-bold tracking-tight md:text-3xl">{title}</h1>
+        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900">{title}</h1>
         {description && (
-          <p className="text-muted-foreground">{description}</p>
+          <p className="text-base sm:text-lg text-gray-600">{description}</p>
         )}
       </div>
       {actions && <div>{actions}</div>}
