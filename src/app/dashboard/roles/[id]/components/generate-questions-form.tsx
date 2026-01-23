@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useFormState, useFormStatus } from 'react-dom';
+import { useEffect, useActionState } from 'react';
+import { useFormStatus } from 'react-dom';
 import { generateQuestionsAction } from '@/app/actions';
 import type { FormState } from '@/app/actions';
 import type { Role, QuestionType } from '@/lib/types';
@@ -37,7 +37,7 @@ function SubmitButton() {
 
 export default function GenerateQuestionsForm({ role }: { role: Role }) {
   const initialState: FormState = { message: '' };
-  const [state, formAction] = useFormState(generateQuestionsAction, initialState);
+  const [state, formAction] = useActionState(generateQuestionsAction, initialState);
   const { toast } = useToast();
 
   useEffect(() => {
