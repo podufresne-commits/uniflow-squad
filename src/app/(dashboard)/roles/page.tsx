@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import { Plus } from 'lucide-react';
-import { getRoles } from '@/lib/db';
-import { roles as mockRoles } from '@/lib/mock-data';
+import { getStorage } from '@/lib/storage';
 import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
 import {
@@ -22,15 +21,8 @@ import {
 import { Badge } from '@/components/ui/badge';
 
 export default async function RolesPage() {
-  // Try to get roles from Firestore, fall back to mock data if Firebase is not configured
-  let roles;
-  try {
-    const firestoreRoles = await getRoles();
-    roles = firestoreRoles.length > 0 ? firestoreRoles : mockRoles;
-  } catch (error) {
-    console.log('Using mock data - Firestore not configured:', error);
-    roles = mockRoles;
-  }
+  const storage = getStorage();
+  const roles = await storage.getRoles();
 
   return (
     <div>

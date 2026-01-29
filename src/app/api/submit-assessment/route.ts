@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { updateAssessmentSession } from '@/lib/db';
+import { getStorage } from '@/lib/storage';
 
 interface ViolationInput {
   type: 'Tab Switch' | 'Copy/Paste';
@@ -46,20 +46,14 @@ export async function POST(request: Request) {
       return acc;
     }, []);
 
-    // Update the assessment session
-    const updated = await updateAssessmentSession(sessionId, {
+    // Get storage adapter and update the assessment session
+    const storage = getStorage();
+    await storage.updateSession(sessionId, {
       status: 'Completed',
       completedAt,
       answers: answersArray,
       integrityViolations: formattedViolations,
     });
-
-    if (!updated) {
-      return NextResponse.json(
-        { error: 'Failed to update assessment session' },
-        { status: 500 }
-      );
-    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

@@ -1,5 +1,4 @@
-import { getAssessmentToken, getRole, markTokenAsUsed } from '@/lib/db';
-import { roles as mockRoles } from '@/lib/mock-data';
+import { getStorage } from '@/lib/storage';
 import AssessmentClient from './assessment-client';
 import { notFound } from 'next/navigation';
 
@@ -17,6 +16,7 @@ export default async function AssessmentPage({
   params: Promise<{ token: string }>;
 }) {
   const { token } = await params;
+  const storage = getStorage();
 
   // Validate token and get assessment details
   let tokenData, role;
@@ -25,7 +25,7 @@ export default async function AssessmentPage({
   let isUsed = false;
 
   try {
-    tokenData = await getAssessmentToken(token);
+    tokenData = await storage.getAssessmentToken(token);
     
     if (!tokenData) {
       // Token not found
@@ -39,13 +39,7 @@ export default async function AssessmentPage({
       isExpired = expirationDate < new Date();
 
       // Get the role
-      try {
-        const firestoreRole = await getRole(tokenData.roleId);
-        role = firestoreRole || mockRoles.find(r => r.id === tokenData.roleId);
-      } catch (error) {
-        // Fall back to mock data
-        role = mockRoles.find(r => r.id === tokenData.roleId);
-      }
+      role = await storage.getRole(tokenData.roleId);
     }
   } catch (error) {
     console.error('Error validating token:', error);
@@ -58,7 +52,7 @@ export default async function AssessmentPage({
         token={token}
         candidateId=""
         sessionId=""
-        role={mockRoles[0] || { id: '', title: '', description: '', requirements: '', skills: [], assessment: { questions: [] } }}
+        role={{ id: '', title: '', description: '', requirements: '', skills: [], assessment: { questions: [] } }}
         isValid={false}
         isExpired={false}
         isUsed={false}

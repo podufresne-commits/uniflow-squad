@@ -51,3 +51,14 @@ export type AssessmentSession = {
     explanation: string;
   }[];
 };
+
+export type AssessmentToken = {
+  id?: string;
+  token: string;
+  candidateId: string;
+  roleId: string;
+  assessmentSessionId: string;
+  expiresAt: Date;
+  used: boolean;
+  createdAt?: Date;
+};

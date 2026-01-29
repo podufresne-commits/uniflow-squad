@@ -6,7 +6,7 @@ import { automatedAiScoring } from '@/ai/flows/automated-ai-scoring';
 import type { AssessmentQuestion } from './lib/types';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
-import { createRole, createCandidate, createAssessmentSession, createAssessmentToken, getCandidate, updateCandidate } from '@/lib/db';
+import { getStorage } from '@/lib/storage';
 
 const questionGenSchema = z.object({
   roleRequirements: z.string().min(10, "Role requirements are too short."),
@@ -105,7 +105,10 @@ export async function createRoleAction(prevState: FormState, formData: FormData)
         }
     }
 
-    // Save role to Firestore
+    // Get storage adapter
+    const storage = getStorage();
+    
+    // Save role using storage adapter
     const skillsArray = validatedFields.data.skills.split(',').map(s => s.trim());
     
     const roleData = {
@@ -119,24 +122,15 @@ export async function createRoleAction(prevState: FormState, formData: FormData)
     };
 
     try {
-        const roleId = await createRole(roleData);
-        
-        if (!roleId) {
-            return {
-                message: 'Failed to create role. Please try again.',
-            }
-        }
-
+        const role = await storage.createRole(roleData);
         revalidatePath('/roles');
+        redirect(`/roles/${role.id}`);
     } catch (error) {
         console.error('Error in createRoleAction:', error);
         return {
             message: 'An unexpected error occurred.',
         }
     }
-    
-    // Redirect outside of try-catch to allow Next.js redirect to work
-    redirect('/roles');
 }
 
 // ================== CANDIDATE ACTIONS ==================
@@ -156,9 +150,8 @@ export async function createCandidateAction(prevState: FormState, formData: Form
     }
 
     try {
-        // Check if candidate already exists with the same email
-        // Note: In production, you'd query Firestore for existing email
-        // For now, we'll create a new candidate each time
+        // Get storage adapter
+        const storage = getStorage();
         
         // Create candidate
         const candidateData = {
@@ -168,17 +161,11 @@ export async function createCandidateAction(prevState: FormState, formData: Form
             assessmentSessionIds: []
         };
 
-        const candidateId = await createCandidate(candidateData);
-        
-        if (!candidateId) {
-            return {
-                message: 'Failed to create candidate. Please try again.',
-            }
-        }
+        const candidate = await storage.createCandidate(candidateData);
 
         // Create assessment session (not started yet, so no startedAt timestamp)
         const sessionData = {
-            candidateId,
+            candidateId: candidate.id,
             roleId: validatedFields.data.roleId,
             status: 'Not Started' as const,
             startedAt: '', // Will be set when assessment actually starts
@@ -187,17 +174,11 @@ export async function createCandidateAction(prevState: FormState, formData: Form
             answers: []
         };
 
-        const sessionId = await createAssessmentSession(sessionData);
-        
-        if (!sessionId) {
-            return {
-                message: 'Failed to create assessment session. Please try again.',
-            }
-        }
+        const session = await storage.createSession(sessionData);
 
         // Update candidate with session ID
-        await updateCandidate(candidateId, {
-            assessmentSessionIds: [sessionId]
+        await storage.updateCandidate(candidate.id, {
+            assessmentSessionIds: [session.id]
         });
 
         // Generate secure token for magic link using Web Crypto API
@@ -217,20 +198,14 @@ export async function createCandidateAction(prevState: FormState, formData: Form
 
         const tokenData = {
             token,
-            candidateId,
+            candidateId: candidate.id,
             roleId: validatedFields.data.roleId,
-            assessmentSessionId: sessionId,
+            assessmentSessionId: session.id,
             expiresAt,
             used: false
         };
 
-        const tokenId = await createAssessmentToken(tokenData);
-        
-        if (!tokenId) {
-            return {
-                message: 'Failed to create invitation token. Please try again.',
-            }
-        }
+        await storage.createAssessmentToken(tokenData);
 
         // Generate invitation link
         const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000');
