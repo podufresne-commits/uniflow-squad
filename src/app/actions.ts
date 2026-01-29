@@ -6,8 +6,7 @@ import { automatedAiScoring } from '@/ai/flows/automated-ai-scoring';
 import type { AssessmentQuestion } from './lib/types';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
-import { createRole, createCandidate, createAssessmentSession, createAssessmentToken } from '@/lib/db';
-import crypto from 'crypto';
+import { createRole, createCandidate, createAssessmentSession, createAssessmentToken, getCandidate, updateCandidate } from '@/lib/db';
 
 const questionGenSchema = z.object({
   roleRequirements: z.string().min(10, "Role requirements are too short."),
@@ -129,17 +128,15 @@ export async function createRoleAction(prevState: FormState, formData: FormData)
         }
 
         revalidatePath('/roles');
-        redirect('/roles');
     } catch (error) {
         console.error('Error in createRoleAction:', error);
         return {
             message: 'An unexpected error occurred.',
         }
     }
-
-    return {
-        message: 'Successfully created role!',
-    }
+    
+    // Redirect outside of try-catch to allow Next.js redirect to work
+    redirect('/roles');
 }
 
 // ================== CANDIDATE ACTIONS ==================
@@ -159,11 +156,15 @@ export async function createCandidateAction(prevState: FormState, formData: Form
     }
 
     try {
+        // Check if candidate already exists with the same email
+        // Note: In production, you'd query Firestore for existing email
+        // For now, we'll create a new candidate each time
+        
         // Create candidate
         const candidateData = {
             name: validatedFields.data.name,
             email: validatedFields.data.email,
-            avatarUrl: `https://api.dicebear.com/7.x/initials/svg?seed=${validatedFields.data.name}`,
+            avatarUrl: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(validatedFields.data.name)}`,
             assessmentSessionIds: []
         };
 
@@ -175,12 +176,12 @@ export async function createCandidateAction(prevState: FormState, formData: Form
             }
         }
 
-        // Create assessment session
+        // Create assessment session (not started yet, so no startedAt timestamp)
         const sessionData = {
             candidateId,
             roleId: validatedFields.data.roleId,
             status: 'Not Started' as const,
-            startedAt: new Date().toISOString(),
+            startedAt: '', // Will be set when assessment actually starts
             overallScore: 0,
             integrityViolations: [],
             answers: []
@@ -194,8 +195,23 @@ export async function createCandidateAction(prevState: FormState, formData: Form
             }
         }
 
-        // Generate secure token for magic link
-        const token = crypto.randomBytes(32).toString('hex');
+        // Update candidate with session ID
+        await updateCandidate(candidateId, {
+            assessmentSessionIds: [sessionId]
+        });
+
+        // Generate secure token for magic link using Web Crypto API
+        const tokenArray = new Uint8Array(32);
+        if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+            crypto.getRandomValues(tokenArray);
+        } else {
+            // Fallback for environments without crypto.getRandomValues
+            for (let i = 0; i < tokenArray.length; i++) {
+                tokenArray[i] = Math.floor(Math.random() * 256);
+            }
+        }
+        const token = Array.from(tokenArray, byte => byte.toString(16).padStart(2, '0')).join('');
+        
         const expiresAt = new Date();
         expiresAt.setDate(expiresAt.getDate() + 7); // Token expires in 7 days
 
@@ -217,13 +233,13 @@ export async function createCandidateAction(prevState: FormState, formData: Form
         }
 
         // Generate invitation link
-        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:9002';
+        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000');
         const invitationLink = `${baseUrl}/assess/${token}`;
 
         revalidatePath('/candidates');
         
         return {
-            message: `Successfully created candidate and sent invitation!`,
+            message: `Successfully created candidate and generated invitation!`,
             invitationLink
         };
 

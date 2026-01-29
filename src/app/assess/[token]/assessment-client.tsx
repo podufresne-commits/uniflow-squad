@@ -51,6 +51,8 @@ export default function AssessmentClient({
         setIsFullscreen(true);
       } catch (err) {
         console.error('Error entering fullscreen:', err);
+        // Fullscreen might not be supported or blocked
+        // Continue anyway but log the issue
       }
     };
 
@@ -69,7 +71,7 @@ export default function AssessmentClient({
 
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
-  }, [isCompleted, isValid, isExpired, isUsed]);
+  }, [isCompleted, isValid, isExpired, isUsed, addViolation]);
 
   // Tab switch detection
   useEffect(() => {
@@ -81,16 +83,26 @@ export default function AssessmentClient({
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [isCompleted]);
+  }, [isCompleted, addViolation]);
 
-  // Copy/paste blocking
+  // Copy/paste blocking - but allow within input fields
   useEffect(() => {
     const handleCopy = (e: ClipboardEvent) => {
+      const target = e.target as HTMLElement;
+      // Allow copy/paste in textareas (for candidate answers)
+      if (target.tagName === 'TEXTAREA' || target.tagName === 'INPUT') {
+        return;
+      }
       e.preventDefault();
       addViolation('Copy/Paste');
     };
 
     const handlePaste = (e: ClipboardEvent) => {
+      const target = e.target as HTMLElement;
+      // Allow copy/paste in textareas (for candidate answers)
+      if (target.tagName === 'TEXTAREA' || target.tagName === 'INPUT') {
+        return;
+      }
       e.preventDefault();
       addViolation('Copy/Paste');
     };
@@ -104,7 +116,7 @@ export default function AssessmentClient({
       document.removeEventListener('paste', handlePaste);
       document.removeEventListener('cut', handleCopy);
     };
-  }, [isCompleted]);
+  }, [addViolation, isCompleted]);
 
   // Timer
   useEffect(() => {
@@ -114,7 +126,10 @@ export default function AssessmentClient({
       setTimeRemaining((prev) => {
         if (prev <= 1) {
           clearInterval(timer);
-          handleSubmitAssessment();
+          // Auto-submit when time runs out
+          handleSubmitAssessment().catch(err => {
+            console.error('Auto-submit failed:', err);
+          });
           return 0;
         }
         return prev - 1;
@@ -122,7 +137,7 @@ export default function AssessmentClient({
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [isCompleted, isValid, isExpired, isUsed]);
+  }, [isCompleted, isValid, isExpired, isUsed, handleSubmitAssessment]);
 
   const addViolation = useCallback((type: 'Tab Switch' | 'Copy/Paste') => {
     setViolations((prev) => [...prev, { type, timestamp: new Date().toISOString() }]);
@@ -144,7 +159,7 @@ export default function AssessmentClient({
     }
   };
 
-  const handleSubmitAssessment = async () => {
+  const handleSubmitAssessment = useCallback(async () => {
     setIsSubmitting(true);
 
     try {
@@ -166,15 +181,14 @@ export default function AssessmentClient({
           await document.exitFullscreen();
         }
       } else {
-        alert('Failed to submit assessment. Please try again.');
+        console.error('Failed to submit assessment');
+        setIsSubmitting(false);
       }
     } catch (error) {
       console.error('Error submitting assessment:', error);
-      alert('An error occurred. Please try again.');
-    } finally {
       setIsSubmitting(false);
     }
-  };
+  }, [sessionId, answers, violations]);
 
   // Invalid token states
   if (!isValid) {

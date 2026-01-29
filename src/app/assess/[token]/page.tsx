@@ -3,6 +3,14 @@ import { roles as mockRoles } from '@/lib/mock-data';
 import AssessmentClient from './assessment-client';
 import { notFound } from 'next/navigation';
 
+// Helper to convert Firestore Timestamp to Date
+function toDate(value: any): Date {
+  if (value instanceof Date) return value;
+  if (value?.toDate && typeof value.toDate === 'function') return value.toDate();
+  if (typeof value === 'string') return new Date(value);
+  return new Date();
+}
+
 export default async function AssessmentPage({
   params,
 }: {
@@ -25,7 +33,10 @@ export default async function AssessmentPage({
     } else {
       isValid = true;
       isUsed = tokenData.used;
-      isExpired = new Date(tokenData.expiresAt) < new Date();
+      
+      // Handle Firestore Timestamp conversion
+      const expirationDate = toDate(tokenData.expiresAt);
+      isExpired = expirationDate < new Date();
 
       // Get the role
       try {
@@ -47,7 +58,7 @@ export default async function AssessmentPage({
         token={token}
         candidateId=""
         sessionId=""
-        role={mockRoles[0]} // Just for type safety, won't be used
+        role={mockRoles[0] || { id: '', title: '', description: '', requirements: '', skills: [], assessment: { questions: [] } }}
         isValid={false}
         isExpired={false}
         isUsed={false}

@@ -1,6 +1,17 @@
 import { NextResponse } from 'next/server';
 import { updateAssessmentSession } from '@/lib/db';
 
+interface ViolationInput {
+  type: 'Tab Switch' | 'Copy/Paste';
+  timestamp: string;
+}
+
+interface ViolationOutput {
+  type: 'Tab Switch' | 'Copy/Paste';
+  timestamp: string;
+  count: number;
+}
+
 export async function POST(request: Request) {
   try {
     const { sessionId, answers, violations, completedAt } = await request.json();
@@ -20,8 +31,8 @@ export async function POST(request: Request) {
       explanation: 'Pending AI scoring'
     }));
 
-    // Convert violations to the correct format
-    const formattedViolations = violations.reduce((acc: any[], violation: any) => {
+    // Convert violations to the correct format with proper types
+    const formattedViolations = (violations as ViolationInput[]).reduce((acc: ViolationOutput[], violation: ViolationInput) => {
       const existing = acc.find(v => v.type === violation.type);
       if (existing) {
         existing.count += 1;
