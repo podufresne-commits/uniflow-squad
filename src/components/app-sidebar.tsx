@@ -18,12 +18,12 @@ import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 
 const menuItems = [
   {
-    href: '/dashboard/roles',
+    href: '/roles',
     label: 'Roles',
     icon: Briefcase,
   },
   {
-    href: '/dashboard/candidates',
+    href: '/candidates',
     label: 'Candidates',
     icon: Users,
   },

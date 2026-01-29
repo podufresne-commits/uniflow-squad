@@ -90,7 +90,7 @@ export default async function CandidateResultPage({
         description={`Detailed report for ${candidate.name}`}
         actions={
           <Button variant="outline" asChild>
-            <Link href="/dashboard/candidates">
+            <Link href="/candidates">
               <ArrowLeft className="mr-2" />
               Back to Candidates
             </Link>

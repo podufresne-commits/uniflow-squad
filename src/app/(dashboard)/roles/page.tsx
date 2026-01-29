@@ -28,7 +28,7 @@ export default function RolesPage() {
         description="Manage and define job roles for assessments."
         actions={
           <Button asChild>
-            <Link href="/dashboard/roles/new">
+            <Link href="/roles/new">
               <Plus className="mr-2" />
               Create Role
             </Link>

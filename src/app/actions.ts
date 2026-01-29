@@ -97,8 +97,8 @@ export async function createRoleAction(prevState: FormState, formData: FormData)
     // In a real app, you'd save this to a database.
     console.log('New Role Created:', validatedFields.data);
     
-    revalidatePath('/dashboard/roles');
-    redirect('/dashboard/roles');
+    revalidatePath('/roles');
+    redirect('/roles');
 
     return {
         message: 'Successfully created role!',
