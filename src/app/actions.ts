@@ -6,6 +6,8 @@ import { automatedAiScoring } from '@/ai/flows/automated-ai-scoring';
 import type { AssessmentQuestion } from './lib/types';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
+import { createRole, createCandidate, createAssessmentSession, createAssessmentToken } from '@/lib/db';
+import crypto from 'crypto';
 
 const questionGenSchema = z.object({
   roleRequirements: z.string().min(10, "Role requirements are too short."),
@@ -21,10 +23,17 @@ const roleSchema = z.object({
     requirements: z.string().min(10, "Requirements are too short."),
 })
 
+const candidateSchema = z.object({
+    name: z.string().min(2, "Name is required."),
+    email: z.string().email("Invalid email address."),
+    roleId: z.string().min(1, "Role is required."),
+})
+
 
 export type FormState = {
   message: string;
   questions?: AssessmentQuestion[];
+  invitationLink?: string;
   errors?: {
     roleRequirements?: string[];
     skillsToTest?: string[];
@@ -35,6 +44,9 @@ export type FormState = {
     description?: string[];
     skills?: string[];
     requirements?: string[];
+    name?: string[];
+    email?: string[];
+    roleId?: string[];
   }
 }
 
@@ -94,13 +106,132 @@ export async function createRoleAction(prevState: FormState, formData: FormData)
         }
     }
 
-    // In a real app, you'd save this to a database.
-    console.log('New Role Created:', validatedFields.data);
+    // Save role to Firestore
+    const skillsArray = validatedFields.data.skills.split(',').map(s => s.trim());
     
-    revalidatePath('/roles');
-    redirect('/roles');
+    const roleData = {
+        title: validatedFields.data.title,
+        description: validatedFields.data.description,
+        requirements: validatedFields.data.requirements,
+        skills: skillsArray,
+        assessment: {
+            questions: [] // Questions can be generated later
+        }
+    };
+
+    try {
+        const roleId = await createRole(roleData);
+        
+        if (!roleId) {
+            return {
+                message: 'Failed to create role. Please try again.',
+            }
+        }
+
+        revalidatePath('/roles');
+        redirect('/roles');
+    } catch (error) {
+        console.error('Error in createRoleAction:', error);
+        return {
+            message: 'An unexpected error occurred.',
+        }
+    }
 
     return {
         message: 'Successfully created role!',
     }
 }
+
+// ================== CANDIDATE ACTIONS ==================
+
+export async function createCandidateAction(prevState: FormState, formData: FormData) {
+    const validatedFields = candidateSchema.safeParse({
+        name: formData.get('name'),
+        email: formData.get('email'),
+        roleId: formData.get('roleId'),
+    });
+
+    if (!validatedFields.success) {
+        return {
+            message: "Validation failed. Please check the fields.",
+            errors: validatedFields.error.flatten().fieldErrors,
+        }
+    }
+
+    try {
+        // Create candidate
+        const candidateData = {
+            name: validatedFields.data.name,
+            email: validatedFields.data.email,
+            avatarUrl: `https://api.dicebear.com/7.x/initials/svg?seed=${validatedFields.data.name}`,
+            assessmentSessionIds: []
+        };
+
+        const candidateId = await createCandidate(candidateData);
+        
+        if (!candidateId) {
+            return {
+                message: 'Failed to create candidate. Please try again.',
+            }
+        }
+
+        // Create assessment session
+        const sessionData = {
+            candidateId,
+            roleId: validatedFields.data.roleId,
+            status: 'Not Started' as const,
+            startedAt: new Date().toISOString(),
+            overallScore: 0,
+            integrityViolations: [],
+            answers: []
+        };
+
+        const sessionId = await createAssessmentSession(sessionData);
+        
+        if (!sessionId) {
+            return {
+                message: 'Failed to create assessment session. Please try again.',
+            }
+        }
+
+        // Generate secure token for magic link
+        const token = crypto.randomBytes(32).toString('hex');
+        const expiresAt = new Date();
+        expiresAt.setDate(expiresAt.getDate() + 7); // Token expires in 7 days
+
+        const tokenData = {
+            token,
+            candidateId,
+            roleId: validatedFields.data.roleId,
+            assessmentSessionId: sessionId,
+            expiresAt,
+            used: false
+        };
+
+        const tokenId = await createAssessmentToken(tokenData);
+        
+        if (!tokenId) {
+            return {
+                message: 'Failed to create invitation token. Please try again.',
+            }
+        }
+
+        // Generate invitation link
+        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:9002';
+        const invitationLink = `${baseUrl}/assess/${token}`;
+
+        revalidatePath('/candidates');
+        
+        return {
+            message: `Successfully created candidate and sent invitation!`,
+            invitationLink
+        };
+
+    } catch (error) {
+        console.error('Error in createCandidateAction:', error);
+        return {
+            message: 'An unexpected error occurred.',
+        }
+    }
+}
+

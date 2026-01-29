@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Plus } from 'lucide-react';
-import { roles } from '@/lib/mock-data';
+import { getRoles } from '@/lib/db';
+import { roles as mockRoles } from '@/lib/mock-data';
 import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
 import {
@@ -20,7 +21,17 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 
-export default function RolesPage() {
+export default async function RolesPage() {
+  // Try to get roles from Firestore, fall back to mock data if Firebase is not configured
+  let roles;
+  try {
+    const firestoreRoles = await getRoles();
+    roles = firestoreRoles.length > 0 ? firestoreRoles : mockRoles;
+  } catch (error) {
+    console.log('Using mock data - Firestore not configured:', error);
+    roles = mockRoles;
+  }
+
   return (
     <div>
       <PageHeader
@@ -53,7 +64,7 @@ export default function RolesPage() {
                 <TableRow key={role.id}>
                   <TableCell className="font-medium">
                     <Link
-                      href={`/dashboard/roles/${role.id}`}
+                      href={`/roles/${role.id}`}
                       className="hover:underline"
                     >
                       {role.title}
@@ -76,7 +87,7 @@ export default function RolesPage() {
                   </TableCell>
                   <TableCell className="text-right">
                     <Button variant="ghost" size="sm" asChild>
-                      <Link href={`/dashboard/roles/${role.id}`}>View</Link>
+                      <Link href={`/roles/${role.id}`}>View</Link>
                     </Button>
                   </TableCell>
                 </TableRow>

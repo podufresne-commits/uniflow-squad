@@ -14,11 +14,27 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { candidates, assessmentSessions, roles } from '@/lib/mock-data';
+import { getCandidates, getAssessmentSessions, getRoles } from '@/lib/db';
+import { candidates as mockCandidates, assessmentSessions as mockSessions, roles as mockRoles } from '@/lib/mock-data';
 import { cn } from '@/lib/utils';
 import type { AssessmentStatus } from '@/lib/types';
 
-export default function CandidatesPage() {
+export default async function CandidatesPage() {
+  // Try to get data from Firestore, fall back to mock data
+  let candidates, assessmentSessions, roles;
+  try {
+    const firestoreCandidates = await getCandidates();
+    const firestoreSessions = await getAssessmentSessions();
+    const firestoreRoles = await getRoles();
+    candidates = firestoreCandidates.length > 0 ? firestoreCandidates : mockCandidates;
+    assessmentSessions = firestoreSessions.length > 0 ? firestoreSessions : mockSessions;
+    roles = firestoreRoles.length > 0 ? firestoreRoles : mockRoles;
+  } catch (error) {
+    console.log('Using mock data - Firestore not configured:', error);
+    candidates = mockCandidates;
+    assessmentSessions = mockSessions;
+    roles = mockRoles;
+  }
 
   const getCandidateStatus = (candidateId: string): { status: AssessmentStatus, roleTitle: string, sessionId: string } | null => {
     const session = assessmentSessions.find(s => s.candidateId === candidateId);
@@ -88,7 +104,7 @@ export default function CandidatesPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       {assessmentInfo && assessmentInfo.status === 'Completed' && (
-                         <Link href={`/dashboard/candidates/${candidate.id}?session=${assessmentInfo.sessionId}`} className="text-primary hover:underline text-sm font-medium">
+                         <Link href={`/candidates/${candidate.id}?session=${assessmentInfo.sessionId}`} className="text-primary hover:underline text-sm font-medium">
                             View Results
                          </Link>
                       )}
