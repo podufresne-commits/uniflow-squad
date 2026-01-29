@@ -1,5 +1,7 @@
 import Link from 'next/link';
+import { UserPlus } from 'lucide-react';
 import { PageHeader } from '@/components/page-header';
+import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent
@@ -58,6 +60,14 @@ export default async function CandidatesPage() {
       <PageHeader
         title="Candidates"
         description="View and manage all candidates and their assessment progress."
+        actions={
+          <Button asChild>
+            <Link href="/candidates/invite">
+              <UserPlus className="mr-2" />
+              Invite Candidate
+            </Link>
+          </Button>
+        }
       />
       <Card>
         <CardContent className="p-0">
