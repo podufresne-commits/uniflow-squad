@@ -1,0 +1,149 @@
+@copilot 
+
+Please implement a proper storage abstraction layer to make it easy to test entirely in dev mode while being ready for production. The current PR mentions Firestore implementation but the actual storage layer isn't properly abstracted yet.
+
+## Required Architecture
+
+```
+src/lib/storage/
+├── index.ts              # Factory + getStorage()
+├── interface.ts          # IStorageAdapter interface
+├── adapters/
+│   ├── mock.ts          # MockStorageAdapter (in-memory)
+│   └── firestore.ts     # FirestoreStorageAdapter
+```
+
+## Implementation Requirements
+
+### 1. Create Storage Interface (`src/lib/storage/interface.ts`)
+```typescript
+export interface IStorageAdapter {
+  // Roles
+  getRoles(): Promise<Role[]>;
+  getRole(id: string): Promise<Role | null>;
+  createRole(role: Omit<Role, 'id'>): Promise<Role>;
+  updateRole(id: string, updates: Partial<Role>): Promise<void>;
+  deleteRole(id: string): Promise<void>;
+  
+  // Candidates
+  getCandidates(): Promise<Candidate[]>;
+  getCandidate(id: string): Promise<Candidate | null>;
+  createCandidate(candidate: Omit<Candidate, 'id'>): Promise<Candidate>;
+  updateCandidate(id: string, updates: Partial<Candidate>): Promise<void>;
+  
+  // Assessment Sessions
+  getSession(id: string): Promise<AssessmentSession | null>;
+  getSessions(): Promise<AssessmentSession[]>;
+  createSession(session: Omit<AssessmentSession, 'id'>): Promise<AssessmentSession>;
+  updateSession(id: string, updates: Partial<AssessmentSession>): Promise<void>;
+  
+  // Assessment Tokens
+  createAssessmentToken(token: AssessmentToken): Promise<void>;
+  getAssessmentToken(token: string): Promise<AssessmentToken | null>;
+  invalidateAssessmentToken(token: string): Promise<void>;
+}
+```
+
+### 2. Mock Adapter (`src/lib/storage/adapters/mock.ts`)
+- Use in-memory Map/Array storage
+- Implement all IStorageAdapter methods
+- Use existing mock-data.ts as seed data
+- Generate IDs using crypto.randomUUID() or nanoid
+
+### 3. Firestore Adapter (`src/lib/storage/adapters/firestore.ts`)
+- Initialize Firebase/Firestore using env vars
+- Collections: `roles`, `candidates`, `assessmentSessions`, `assessmentTokens`
+- Proper Timestamp/Date conversions
+- Error handling with try/catch
+- Return null for not-found items (don't throw)
+
+### 4. Factory Pattern (`src/lib/storage/index.ts`)
+```typescript
+let storageInstance: IStorageAdapter | null = null;
+
+export function getStorage(): IStorageAdapter {
+  if (storageInstance) return storageInstance;
+  
+  const mode = process.env.STORAGE_MODE || 'auto';
+  
+  if (mode === 'mock') {
+    storageInstance = new MockStorageAdapter();
+  } else if (mode === 'firestore' || (mode === 'auto' && isFirebaseConfigured())) {
+    storageInstance = new FirestoreStorageAdapter();
+  } else {
+    console.warn('⚠️  Firebase not configured, using mock storage');
+    storageInstance = new MockStorageAdapter();
+  }
+  
+  return storageInstance;
+}
+
+function isFirebaseConfigured(): boolean {
+  return !!(
+    process.env.NEXT_PUBLIC_FIREBASE_API_KEY &&
+    process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID
+  );
+}
+```
+
+### 5. Update Server Actions
+Replace direct mock data usage with `getStorage()`:
+
+```typescript
+// src/app/actions.ts
+import { getStorage } from '@/lib/storage';
+
+export async function createRoleAction(prevState: FormState, formData: FormData) {
+  const storage = getStorage();
+  
+  const validated = roleSchema.safeParse({ /* ... */ });
+  if (!validated.success) {
+    return { errors: validated.error.flatten().fieldErrors };
+  }
+  
+  const role = await storage.createRole(validated.data);
+  revalidatePath('/dashboard/roles');
+  redirect(`/dashboard/roles/${role.id}`);
+}
+```
+
+### 6. Update All Pages
+Replace imports from `@/lib/mock-data` with storage calls:
+
+```typescript
+// Before
+import { roles } from '@/lib/mock-data';
+
+// After  
+import { getStorage } from '@/lib/storage';
+const storage = getStorage();
+const roles = await storage.getRoles();
+```
+
+### 7. Environment Configuration
+
+Add to `.env.example`:
+```bash
+# Storage Configuration
+STORAGE_MODE=auto  # auto | mock | firestore
+
+# Firebase Configuration (required for firestore mode)
+NEXT_PUBLIC_FIREBASE_API_KEY=
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
+NEXT_PUBLIC_FIREBASE_APP_ID=
+```
+
+## Key Benefits
+
+✅ **Dev Mode**: Works immediately without Firebase setup
+✅ **Prod Mode**: Real persistence with Firestore  
+✅ **Type Safety**: Interface ensures consistency across adapters
+✅ **Testable**: Easy to inject mock adapter for tests
+✅ **Extensible**: Can add PostgreSQL, Supabase, etc. later
+
+## Testing Strategy
+
+Ensure both adapters work identically by creating shared test suite that runs against both implementations.
