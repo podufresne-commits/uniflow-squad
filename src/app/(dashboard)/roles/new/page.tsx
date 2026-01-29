@@ -32,7 +32,7 @@ export default function NewRolePage() {
         description="Define a new job role to start creating assessments."
         actions={
           <Button variant="outline" asChild>
-            <Link href="/dashboard/roles">
+            <Link href="/roles">
               <ArrowLeft className="mr-2" />
               Cancel
             </Link>
@@ -67,7 +67,7 @@ export default function NewRolePage() {
               {state.errors?.requirements && <p className="text-sm text-destructive">{state.errors.requirements[0]}</p>}
             </div>
             <div className="flex justify-end gap-4">
-                <Button variant="ghost" asChild><Link href="/dashboard/roles">Cancel</Link></Button>
+                <Button variant="ghost" asChild><Link href="/roles">Cancel</Link></Button>
                 <SubmitButton />
             </div>
           </form>

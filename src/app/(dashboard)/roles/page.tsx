@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { Plus } from 'lucide-react';
-import { roles } from '@/lib/mock-data';
+import { getStorage } from '@/lib/storage';
 import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
 import {
@@ -20,7 +20,10 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 
-export default function RolesPage() {
+export default async function RolesPage() {
+  const storage = getStorage();
+  const roles = await storage.getRoles();
+
   return (
     <div>
       <PageHeader
@@ -28,7 +31,7 @@ export default function RolesPage() {
         description="Manage and define job roles for assessments."
         actions={
           <Button asChild>
-            <Link href="/dashboard/roles/new">
+            <Link href="/roles/new">
               <Plus className="mr-2" />
               Create Role
             </Link>
@@ -53,7 +56,7 @@ export default function RolesPage() {
                 <TableRow key={role.id}>
                   <TableCell className="font-medium">
                     <Link
-                      href={`/dashboard/roles/${role.id}`}
+                      href={`/roles/${role.id}`}
                       className="hover:underline"
                     >
                       {role.title}
@@ -76,7 +79,7 @@ export default function RolesPage() {
                   </TableCell>
                   <TableCell className="text-right">
                     <Button variant="ghost" size="sm" asChild>
-                      <Link href={`/dashboard/roles/${role.id}`}>View</Link>
+                      <Link href={`/roles/${role.id}`}>View</Link>
                     </Button>
                   </TableCell>
                 </TableRow>

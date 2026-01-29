@@ -1,5 +1,7 @@
 import Link from 'next/link';
+import { UserPlus } from 'lucide-react';
 import { PageHeader } from '@/components/page-header';
+import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent
@@ -14,11 +16,15 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { candidates, assessmentSessions, roles } from '@/lib/mock-data';
+import { getStorage } from '@/lib/storage';
 import { cn } from '@/lib/utils';
 import type { AssessmentStatus } from '@/lib/types';
 
-export default function CandidatesPage() {
+export default async function CandidatesPage() {
+  const storage = getStorage();
+  const candidates = await storage.getCandidates();
+  const assessmentSessions = await storage.getSessions();
+  const roles = await storage.getRoles();
 
   const getCandidateStatus = (candidateId: string): { status: AssessmentStatus, roleTitle: string, sessionId: string } | null => {
     const session = assessmentSessions.find(s => s.candidateId === candidateId);
@@ -42,6 +48,14 @@ export default function CandidatesPage() {
       <PageHeader
         title="Candidates"
         description="View and manage all candidates and their assessment progress."
+        actions={
+          <Button asChild>
+            <Link href="/candidates/invite">
+              <UserPlus className="mr-2" />
+              Invite Candidate
+            </Link>
+          </Button>
+        }
       />
       <Card>
         <CardContent className="p-0">
@@ -88,7 +102,7 @@ export default function CandidatesPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       {assessmentInfo && assessmentInfo.status === 'Completed' && (
-                         <Link href={`/dashboard/candidates/${candidate.id}?session=${assessmentInfo.sessionId}`} className="text-primary hover:underline text-sm font-medium">
+                         <Link href={`/candidates/${candidate.id}?session=${assessmentInfo.sessionId}`} className="text-primary hover:underline text-sm font-medium">
                             View Results
                          </Link>
                       )}

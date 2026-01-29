@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ArrowLeft, CheckCircle, Code, FileText, AlertTriangle, User, Briefcase, Clock, ShieldCheck } from 'lucide-react';
-import { candidates, assessmentSessions, roles } from '@/lib/mock-data';
+import { getStorage } from '@/lib/storage';
 import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,9 +19,11 @@ export default async function CandidateResultPage({
   params: { id: string };
   searchParams: { session?: string };
 }) {
-  const candidate = candidates.find((c) => c.id === params.id);
-  const session = assessmentSessions.find((s) => s.id === searchParams.session);
-  const role = roles.find((r) => r.id === session?.roleId);
+  const storage = getStorage();
+  
+  const candidate = await storage.getCandidate(params.id);
+  const session = searchParams.session ? await storage.getSession(searchParams.session) : null;
+  const role = session ? await storage.getRole(session.roleId) : null;
 
   if (!candidate || !session || !role) {
     notFound();
@@ -90,7 +92,7 @@ export default async function CandidateResultPage({
         description={`Detailed report for ${candidate.name}`}
         actions={
           <Button variant="outline" asChild>
-            <Link href="/dashboard/candidates">
+            <Link href="/candidates">
               <ArrowLeft className="mr-2" />
               Back to Candidates
             </Link>

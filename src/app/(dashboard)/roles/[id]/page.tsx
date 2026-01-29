@@ -74,7 +74,7 @@ export default function RoleDetailPage({ params }: { params: { id: string } }) {
         description={role.description}
         actions={
           <Button variant="outline" asChild>
-            <Link href="/dashboard/roles">
+            <Link href="/roles">
               <ArrowLeft className="mr-2" />
               Back to Roles
             </Link>

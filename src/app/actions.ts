@@ -6,6 +6,7 @@ import { automatedAiScoring } from '@/ai/flows/automated-ai-scoring';
 import type { AssessmentQuestion } from './lib/types';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
+import { getStorage } from '@/lib/storage';
 
 const questionGenSchema = z.object({
   roleRequirements: z.string().min(10, "Role requirements are too short."),
@@ -21,10 +22,17 @@ const roleSchema = z.object({
     requirements: z.string().min(10, "Requirements are too short."),
 })
 
+const candidateSchema = z.object({
+    name: z.string().min(2, "Name is required."),
+    email: z.string().email("Invalid email address."),
+    roleId: z.string().min(1, "Role is required."),
+})
+
 
 export type FormState = {
   message: string;
   questions?: AssessmentQuestion[];
+  invitationLink?: string;
   errors?: {
     roleRequirements?: string[];
     skillsToTest?: string[];
@@ -35,6 +43,9 @@ export type FormState = {
     description?: string[];
     skills?: string[];
     requirements?: string[];
+    name?: string[];
+    email?: string[];
+    roleId?: string[];
   }
 }
 
@@ -94,13 +105,124 @@ export async function createRoleAction(prevState: FormState, formData: FormData)
         }
     }
 
-    // In a real app, you'd save this to a database.
-    console.log('New Role Created:', validatedFields.data);
+    // Get storage adapter
+    const storage = getStorage();
     
-    revalidatePath('/dashboard/roles');
-    redirect('/dashboard/roles');
+    // Save role using storage adapter
+    const skillsArray = validatedFields.data.skills.split(',').map(s => s.trim());
+    
+    const roleData = {
+        title: validatedFields.data.title,
+        description: validatedFields.data.description,
+        requirements: validatedFields.data.requirements,
+        skills: skillsArray,
+        assessment: {
+            questions: [] // Questions can be generated later
+        }
+    };
 
-    return {
-        message: 'Successfully created role!',
+    try {
+        const role = await storage.createRole(roleData);
+        revalidatePath('/roles');
+        redirect(`/roles/${role.id}`);
+    } catch (error) {
+        console.error('Error in createRoleAction:', error);
+        return {
+            message: 'An unexpected error occurred.',
+        }
     }
 }
+
+// ================== CANDIDATE ACTIONS ==================
+
+export async function createCandidateAction(prevState: FormState, formData: FormData) {
+    const validatedFields = candidateSchema.safeParse({
+        name: formData.get('name'),
+        email: formData.get('email'),
+        roleId: formData.get('roleId'),
+    });
+
+    if (!validatedFields.success) {
+        return {
+            message: "Validation failed. Please check the fields.",
+            errors: validatedFields.error.flatten().fieldErrors,
+        }
+    }
+
+    try {
+        // Get storage adapter
+        const storage = getStorage();
+        
+        // Create candidate
+        const candidateData = {
+            name: validatedFields.data.name,
+            email: validatedFields.data.email,
+            avatarUrl: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(validatedFields.data.name)}`,
+            assessmentSessionIds: []
+        };
+
+        const candidate = await storage.createCandidate(candidateData);
+
+        // Create assessment session (not started yet, so no startedAt timestamp)
+        const sessionData = {
+            candidateId: candidate.id,
+            roleId: validatedFields.data.roleId,
+            status: 'Not Started' as const,
+            startedAt: '', // Will be set when assessment actually starts
+            overallScore: 0,
+            integrityViolations: [],
+            answers: []
+        };
+
+        const session = await storage.createSession(sessionData);
+
+        // Update candidate with session ID
+        await storage.updateCandidate(candidate.id, {
+            assessmentSessionIds: [session.id]
+        });
+
+        // Generate secure token for magic link using Web Crypto API
+        const tokenArray = new Uint8Array(32);
+        if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+            crypto.getRandomValues(tokenArray);
+        } else {
+            // Fallback for environments without crypto.getRandomValues
+            for (let i = 0; i < tokenArray.length; i++) {
+                tokenArray[i] = Math.floor(Math.random() * 256);
+            }
+        }
+        const token = Array.from(tokenArray, byte => byte.toString(16).padStart(2, '0')).join('');
+        
+        const expiresAt = new Date();
+        expiresAt.setDate(expiresAt.getDate() + 7); // Token expires in 7 days
+
+        const tokenData = {
+            token,
+            candidateId: candidate.id,
+            roleId: validatedFields.data.roleId,
+            assessmentSessionId: session.id,
+            expiresAt,
+            used: false
+        };
+
+        await storage.createAssessmentToken(tokenData);
+
+        // Generate invitation link
+        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000');
+        const invitationLink = `${baseUrl}/assess/${token}`;
+
+        revalidatePath('/candidates');
+        
+        return {
+            message: `Successfully created candidate and generated invitation!`,
+            invitationLink
+        };
+
+    } catch (error) {
+        console.error('Error in createCandidateAction:', error);
+        return {
+            message: 'An unexpected error occurred.',
+        }
+    }
+}
+
